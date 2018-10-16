@@ -16,35 +16,57 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * <h1>MojangAPI</h1>
+ *
+ * The MojangAPI class handles all interactions with the API. All of the API endpoints can be accessed through this class.
+ * You can retrieve an instance of this class through the {@link #getInstance()} method. This class is rate limited to
+ * 600 requests per 10 minutes. More infomation about the Mojang API can be found <a href="https://wiki.vg/Mojang_API">here</a>.
+ */
 public final class MojangAPI {
 
 	private static MojangAPI instance;
 	private static CloseableHttpClient client = HttpClients.createDefault();
+	private static List<Long> requestTimestamps = new ArrayList<>();
 
+	/**
+	 * This method retreives the status of each Mojang service. This is expected to be
+	 * cached as it is unlikely to change.
+	 *
+	 * @return An {@link Optional} containing the {@link MojangServices}
+	 * @see MojangServices
+	 * @see Optional
+	 */
 	public Optional<MojangServices> getServices() {
 
 		HttpGet request = new HttpGet(Endpoints.getStatus());
+		updateRequests();
 
-		try (CloseableHttpResponse response = client.execute(request)) {
+		if (requestTimestamps.size() < 600) {
+			try (CloseableHttpResponse response = client.execute(request)) {
 
-			if (response.getStatusLine().getStatusCode() != 200)
-				return Optional.empty();
+				requestTimestamps.add(System.currentTimeMillis());
 
-			List<MojangService> services = new ArrayList<>();
-			JsonArray serviceResponse = new JsonParser()
-					.parse(new InputStreamReader(response.getEntity().getContent()))
-					.getAsJsonArray();
+				if (response.getStatusLine().getStatusCode() != 200)
+					return Optional.empty();
 
-			for (JsonElement service : serviceResponse) {
-				for (Map.Entry<String, JsonElement> entry : service.getAsJsonObject().entrySet()) {
-					services.add(new MojangService(entry.getKey(), ServiceStatus.valueOf(entry.getValue().getAsString().toUpperCase())));
+				List<MojangService> services = new ArrayList<>();
+				JsonArray serviceResponse = new JsonParser()
+						.parse(new InputStreamReader(response.getEntity().getContent()))
+						.getAsJsonArray();
+
+				for (JsonElement service : serviceResponse) {
+					for (Map.Entry<String, JsonElement> entry : service.getAsJsonObject().entrySet()) {
+						services.add(new MojangService(entry.getKey(), ServiceStatus.valueOf(entry.getValue().getAsString().toUpperCase())));
+					}
 				}
-			}
 
-			return Optional.of(new MojangServices(services));
-		} catch (IOException e) {
-			e.printStackTrace();
+				return Optional.of(new MojangServices(services));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 
 		return Optional.empty();
@@ -53,22 +75,27 @@ public final class MojangAPI {
 	public Optional<UUID> getUUID(String username) {
 
 		HttpGet request = new HttpGet(Endpoints.getUUID(username));
+		updateRequests();
 
-		try (CloseableHttpResponse response = client.execute(request)) {
+		if (requestTimestamps.size() < 600) {
+			try (CloseableHttpResponse response = client.execute(request)) {
 
-			int code = response.getStatusLine().getStatusCode();
-			InputStream in = response.getEntity().getContent();
+				requestTimestamps.add(System.currentTimeMillis());
 
-			if (code != 200)
-				return Optional.empty();
+				int code = response.getStatusLine().getStatusCode();
+				InputStream in = response.getEntity().getContent();
 
-			JsonObject user = new JsonParser()
-					.parse(new InputStreamReader(in))
-					.getAsJsonObject();
+				if (code != 200)
+					return Optional.empty();
 
-			return Optional.of(buildUUID(user.get("id").getAsString()));
-		} catch (IOException e) {
-			e.printStackTrace();
+				JsonObject user = new JsonParser()
+						.parse(new InputStreamReader(in))
+						.getAsJsonObject();
+
+				return Optional.of(buildUUID(user.get("id").getAsString()));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 
 		return Optional.empty();
@@ -85,7 +112,21 @@ public final class MojangAPI {
 	}
 
 	private MojangAPI() {
+
 		if (instance != null) throw new IllegalStateException("Only one instance of MojangAPI can exist");
+		Runtime.getRuntime().addShutdownHook(new Thread(MojangAPI::disconnect));
+	}
+
+	private static void disconnect() {
+		try {
+			client.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void updateRequests() {
+		requestTimestamps.removeIf(timestamp -> System.currentTimeMillis() - timestamp > TimeUnit.MINUTES.toMillis(10));
 	}
 
 	public static synchronized MojangAPI getInstance() {
