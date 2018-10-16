@@ -19,24 +19,12 @@ public class ServiceHandler implements ResponseHandler<MojangServices> {
 		List<MojangService> services = new ArrayList<>();
 		JsonArray serviceResponse = json.getAsJsonArray();
 
-		if (code != 200)
-			return Optional.empty();
-
 		StreamSupport.stream(serviceResponse.spliterator(), false)
 				.map(JsonElement::getAsJsonObject)
 				.map(JsonObject::entrySet)
 				.forEach(set ->
 						set.forEach(e ->
 								services.add(new MojangService(e.getKey(), getStatus(e.getValue())))));
-
-		/*for (JsonElement service : serviceResponse) {
-
-			Set<Map.Entry<String, JsonElement>> entries = service.getAsJsonObject().entrySet();
-
-			for (Map.Entry<String, JsonElement> entry : entries) {
-				services.add(new MojangService(entry.getKey(), getStatus(entry.getValue())));
-			}
-		}*/
 
 		return Optional.of(new MojangServices(services));
 	}

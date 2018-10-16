@@ -1,11 +1,10 @@
 package adiitya.mojang4j;
 
-import adiitya.mojang4j.http.Requests;
+import adiitya.mojang4j.http.RequestLimiter;
 import adiitya.mojang4j.http.ResponseHandler;
-import adiitya.mojang4j.http.response.ServiceHandler;
+import adiitya.mojang4j.http.response.*;
 import adiitya.mojang4j.status.MojangServices;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -30,9 +29,10 @@ public final class MojangAPI {
 
 	private static MojangAPI instance;
 	private static CloseableHttpClient client = HttpClients.createDefault();
-	private static Requests requests = new Requests(600, TimeUnit.MINUTES.toMillis(10));
+	private static RequestLimiter requestLimiter = new RequestLimiter(600, TimeUnit.MINUTES.toMillis(10));
 
 	private static final ResponseHandler<MojangServices> serviceHandler = new ServiceHandler();
+	private static final ResponseHandler<UUID>           uuidHandler    = new UUIDHandler();
 
 	/**
 	 * This method retreives the status of each Mojang service. This is expected to be
@@ -47,43 +47,19 @@ public final class MojangAPI {
 	}
 
 	public Optional<UUID> getUUID(String username) {
-
-		HttpGet request = new HttpGet(Endpoints.getUUID(username));
-
-		if (requests.canRequest()) {
-			try (CloseableHttpResponse response = client.execute(request)) {
-
-				requests.request(response);
-
-				int code = response.getStatusLine().getStatusCode();
-				InputStream in = response.getEntity().getContent();
-
-				if (code != 200)
-					return Optional.empty();
-
-				JsonObject user = new JsonParser()
-						.parse(new InputStreamReader(in))
-						.getAsJsonObject();
-
-				return Optional.of(buildUUID(user.get("id").getAsString()));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-		return Optional.empty();
+		return request(Endpoints.getUUID(username), uuidHandler);
 	}
 
 	private <T> Optional<T> request(URI uri, ResponseHandler<T> handler) {
 
-		if (!requests.canRequest())
+		if (!requestLimiter.canRequest())
 			return Optional.empty();
 
 		HttpGet request = new HttpGet(uri);
 
 		try (CloseableHttpResponse response = client.execute(request)) {
 
-			requests.request(response);
+			requestLimiter.request(response);
 
 			int code = response.getStatusLine().getStatusCode();
 			InputStream content = response.getEntity().getContent();
@@ -92,20 +68,13 @@ public final class MojangAPI {
 			JsonElement json = new JsonParser().parse(reader);
 			reader.close();
 
+			if (code != 200)
+				return Optional.empty();
+
 			return handler.handle(code, json);
 		} catch (IOException e) {
 			return Optional.empty();
 		}
-	}
-
-	private UUID buildUUID(String id) {
-
-		String uuid = id.replaceAll("^((\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12}))$", "$2-$3-$4-$5-$6");
-		return UUID.fromString(uuid);
-	}
-
-	private String stripUUID(UUID uuid) {
-		return uuid.toString().replace("-", "");
 	}
 
 	private MojangAPI() {

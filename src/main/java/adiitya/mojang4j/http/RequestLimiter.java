@@ -5,14 +5,14 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Requests {
+public final class RequestLimiter {
 
 	private final int requestLimit;
 	private final long limitPeriod;
 
 	private final List<Long> requestTimestamps = new ArrayList<>();
 
-	public Requests(int requestLimit, long limitPeriod) {
+	public RequestLimiter(int requestLimit, long limitPeriod) {
 		this.requestLimit = requestLimit;
 		this.limitPeriod = limitPeriod;
 	}
