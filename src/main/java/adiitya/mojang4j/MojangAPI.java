@@ -1,5 +1,6 @@
 package adiitya.mojang4j;
 
+import adiitya.mojang4j.http.Requests;
 import adiitya.mojang4j.status.MojangService;
 import adiitya.mojang4j.status.MojangServices;
 import adiitya.mojang4j.status.ServiceStatus;
@@ -29,7 +30,7 @@ public final class MojangAPI {
 
 	private static MojangAPI instance;
 	private static CloseableHttpClient client = HttpClients.createDefault();
-	private static List<Long> requestTimestamps = new ArrayList<>();
+	private static Requests requests = new Requests(600, TimeUnit.MINUTES.toMillis(10));
 
 	/**
 	 * This method retreives the status of each Mojang service. This is expected to be
@@ -42,12 +43,11 @@ public final class MojangAPI {
 	public Optional<MojangServices> getServices() {
 
 		HttpGet request = new HttpGet(Endpoints.getStatus());
-		updateRequests();
 
-		if (requestTimestamps.size() < 600) {
+		if (requests.canRequest()) {
 			try (CloseableHttpResponse response = client.execute(request)) {
 
-				requestTimestamps.add(System.currentTimeMillis());
+				requests.request(response);
 
 				if (response.getStatusLine().getStatusCode() != 200)
 					return Optional.empty();
@@ -70,17 +70,20 @@ public final class MojangAPI {
 		}
 
 		return Optional.empty();
+
+		/*
+
+		 */
 	}
 
 	public Optional<UUID> getUUID(String username) {
 
 		HttpGet request = new HttpGet(Endpoints.getUUID(username));
-		updateRequests();
 
-		if (requestTimestamps.size() < 600) {
+		if (requests.canRequest()) {
 			try (CloseableHttpResponse response = client.execute(request)) {
 
-				requestTimestamps.add(System.currentTimeMillis());
+				requests.request(response);
 
 				int code = response.getStatusLine().getStatusCode();
 				InputStream in = response.getEntity().getContent();
@@ -123,10 +126,6 @@ public final class MojangAPI {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-	}
-
-	private void updateRequests() {
-		requestTimestamps.removeIf(timestamp -> System.currentTimeMillis() - timestamp > TimeUnit.MINUTES.toMillis(10));
 	}
 
 	public static synchronized MojangAPI getInstance() {
