@@ -50,6 +50,10 @@ public final class MojangAPI {
 		return request(Endpoints.getUUID(username), uuidHandler);
 	}
 
+	public Optional<UUID> getUUID(String username, long at) {
+		return request(Endpoints.getUUID(username, at), uuidHandler);
+	}
+
 	private <T> Optional<T> request(URI uri, ResponseHandler<T> handler) {
 
 		if (!requestLimiter.canRequest())
@@ -77,18 +81,18 @@ public final class MojangAPI {
 		}
 	}
 
-	private MojangAPI() {
-
-		if (instance != null) throw new IllegalStateException("Only one instance of MojangAPI can exist");
-		Runtime.getRuntime().addShutdownHook(new Thread(MojangAPI::disconnect));
-	}
-
 	private static void disconnect() {
 		try {
 			client.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	private MojangAPI() {
+
+		if (instance != null) throw new IllegalStateException("Only one instance of MojangAPI can exist");
+		Runtime.getRuntime().addShutdownHook(new Thread(MojangAPI::disconnect));
 	}
 
 	public static synchronized MojangAPI getInstance() {
