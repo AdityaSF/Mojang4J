@@ -1,10 +1,9 @@
 package adiitya.mojang4j;
 
 import adiitya.mojang4j.http.Requests;
-import adiitya.mojang4j.status.MojangService;
+import adiitya.mojang4j.http.ResponseHandler;
+import adiitya.mojang4j.http.response.ServiceHandler;
 import adiitya.mojang4j.status.MojangServices;
-import adiitya.mojang4j.status.ServiceStatus;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -16,6 +15,7 @@ import org.apache.http.impl.client.HttpClients;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -32,6 +32,8 @@ public final class MojangAPI {
 	private static CloseableHttpClient client = HttpClients.createDefault();
 	private static Requests requests = new Requests(600, TimeUnit.MINUTES.toMillis(10));
 
+	private static final ResponseHandler<MojangServices> serviceHandler = new ServiceHandler();
+
 	/**
 	 * This method retreives the status of each Mojang service. This is expected to be
 	 * cached as it is unlikely to change.
@@ -41,39 +43,7 @@ public final class MojangAPI {
 	 * @see Optional
 	 */
 	public Optional<MojangServices> getServices() {
-
-		HttpGet request = new HttpGet(Endpoints.getStatus());
-
-		if (requests.canRequest()) {
-			try (CloseableHttpResponse response = client.execute(request)) {
-
-				requests.request(response);
-
-				if (response.getStatusLine().getStatusCode() != 200)
-					return Optional.empty();
-
-				List<MojangService> services = new ArrayList<>();
-				JsonArray serviceResponse = new JsonParser()
-						.parse(new InputStreamReader(response.getEntity().getContent()))
-						.getAsJsonArray();
-
-				for (JsonElement service : serviceResponse) {
-					for (Map.Entry<String, JsonElement> entry : service.getAsJsonObject().entrySet()) {
-						services.add(new MojangService(entry.getKey(), ServiceStatus.valueOf(entry.getValue().getAsString().toUpperCase())));
-					}
-				}
-
-				return Optional.of(new MojangServices(services));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
-
-		return Optional.empty();
-
-		/*
-
-		 */
+		return request(Endpoints.getStatus(), serviceHandler);
 	}
 
 	public Optional<UUID> getUUID(String username) {
@@ -102,6 +72,30 @@ public final class MojangAPI {
 		}
 
 		return Optional.empty();
+	}
+
+	private <T> Optional<T> request(URI uri, ResponseHandler<T> handler) {
+
+		if (!requests.canRequest())
+			return Optional.empty();
+
+		HttpGet request = new HttpGet(uri);
+
+		try (CloseableHttpResponse response = client.execute(request)) {
+
+			requests.request(response);
+
+			int code = response.getStatusLine().getStatusCode();
+			InputStream content = response.getEntity().getContent();
+			InputStreamReader reader = new InputStreamReader(content);
+
+			JsonElement json = new JsonParser().parse(reader);
+			reader.close();
+
+			return handler.handle(code, json);
+		} catch (IOException e) {
+			return Optional.empty();
+		}
 	}
 
 	private UUID buildUUID(String id) {

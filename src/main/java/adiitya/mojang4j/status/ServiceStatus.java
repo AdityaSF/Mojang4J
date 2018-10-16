@@ -9,5 +9,9 @@ public enum ServiceStatus {
 	YELLOW,
 
 	/** The service is unavailable */
-	RED
+	RED;
+
+	public static ServiceStatus get(String name) {
+		return valueOf(name.toUpperCase());
+	}
 }
