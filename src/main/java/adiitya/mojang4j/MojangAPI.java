@@ -5,6 +5,7 @@ import adiitya.mojang4j.status.MojangServices;
 import adiitya.mojang4j.status.ServiceStatus;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -12,11 +13,9 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 public final class MojangAPI {
 
@@ -49,6 +48,40 @@ public final class MojangAPI {
 		}
 
 		return Optional.empty();
+	}
+
+	public Optional<UUID> getUUID(String username) {
+
+		HttpGet request = new HttpGet(Endpoints.getUUID(username));
+
+		try (CloseableHttpResponse response = client.execute(request)) {
+
+			int code = response.getStatusLine().getStatusCode();
+			InputStream in = response.getEntity().getContent();
+
+			if (code != 200)
+				return Optional.empty();
+
+			JsonObject user = new JsonParser()
+					.parse(new InputStreamReader(in))
+					.getAsJsonObject();
+
+			return Optional.of(buildUUID(user.get("id").getAsString()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return Optional.empty();
+	}
+
+	private UUID buildUUID(String id) {
+
+		String uuid = id.replaceAll("^((\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12}))$", "$2-$3-$4-$5-$6");
+		return UUID.fromString(uuid);
+	}
+
+	private String stripUUID(UUID uuid) {
+		return uuid.toString().replace("-", "");
 	}
 
 	private MojangAPI() {
