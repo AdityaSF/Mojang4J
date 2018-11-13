@@ -1,9 +1,13 @@
 package adiitya.mojang4j;
 
 import lombok.experimental.UtilityClass;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.message.BasicNameValuePair;
 
 import java.net.URI;
-import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -15,13 +19,16 @@ import java.util.UUID;
 @UtilityClass
 public class Endpoints {
 
-	private static final String STATUS = "https://status.mojang.com/check";
-	private static final String UUID_FROM_USERNAME = "https://api.mojang.com/users/profiles/minecraft/%s?at=%d";
-	private static final String PROFILE = "https://sessionserver.mojang.com/session/minecraft/profile/%s";
+	private static final String STATUS_HOST =  "status.mojang.com";
+	private static final String API_HOST =     "api.mojang.com";
+	private static final String SESSION_HOST = "sessionserver.mojang.com";
 
+	private static final String STATUS_PATH = "check";
+	private static final String UUID_PATH = "users/profiles/minecraft/%s";
+	private static final String PROFILE_PATH = "session/minecraft/profile/%s";
 
 	public URI getStatus() {
-		return getURI(STATUS);
+		return getURI(STATUS_HOST, STATUS_PATH);
 	}
 
 	/**
@@ -48,18 +55,46 @@ public class Endpoints {
 	 * @see #getUUID(String)
 	 */
 	public URI getUUID(String username, long at) {
-		return getURI(UUID_FROM_USERNAME, username, at);
+		return getURI(API_HOST, UUID_PATH, new Object[] {"at", at}, username);
 	}
 
 	public URI getProfile(UUID uuid) {
-		return getURI(PROFILE, UUIDUtils.removeHyphens(uuid));
+		return getURI(SESSION_HOST, PROFILE_PATH, UUIDUtils.removeHyphens(uuid));
 	}
 
-	private URI getURI(String format, Object... args) {
+	private URI getURI(String host, String path, Object... params) {
+		return getURI(host, path, new Object[0], params);
+	}
+
+	private URI getURI(String host, String path, Object[] uriParams, Object... params) {
 		try {
-			return new URI(String.format(format, args));
-		} catch(URISyntaxException ignored) {
+
+			return new URIBuilder()
+					.setScheme("https")
+					.setHost(host)
+					.setPath(String.format(path, params))
+					.addParameters(generatePairs(uriParams))
+					.build();
+		} catch(Exception ignored) {
 			return null;
 		}
+	}
+
+	private List<NameValuePair> generatePairs(Object[] pairs) throws Exception {
+
+		if (pairs.length % 2 != 0)
+			throw new Exception("Uneven key value pairs");
+
+		List<NameValuePair> pairList = new ArrayList<>();
+
+		for (int i = 0; i < pairs.length / 2; i += 2) {
+
+			Object key = pairs[i];
+			Object value = pairs[i + 1];
+
+			pairList.add(new BasicNameValuePair(key.toString(), value.toString()));
+		}
+
+		return pairList;
 	}
 }
