@@ -17,6 +17,8 @@ public class Endpoints {
 
 	private static final String STATUS = "https://status.mojang.com/check";
 	private static final String UUID_FROM_USERNAME = "https://api.mojang.com/users/profiles/minecraft/%s?at=%d";
+	private static final String PROFILE = "https://sessionserver.mojang.com/session/minecraft/profile/%s";
+
 
 	public URI getStatus() {
 		return getURI(STATUS);
@@ -32,7 +34,7 @@ public class Endpoints {
 	 * @see #getUUID(String, long)
 	 */
 	public URI getUUID(String username) {
-		return getUUID(username, System.currentTimeMillis());
+		return getUUID(username, System.currentTimeMillis() / 1000L);
 	}
 
 	/**
@@ -47,6 +49,10 @@ public class Endpoints {
 	 */
 	public URI getUUID(String username, long at) {
 		return getURI(UUID_FROM_USERNAME, username, at);
+	}
+
+	public URI getProfile(UUID uuid) {
+		return getURI(PROFILE, UUIDUtils.removeHyphens(uuid));
 	}
 
 	private URI getURI(String format, Object... args) {

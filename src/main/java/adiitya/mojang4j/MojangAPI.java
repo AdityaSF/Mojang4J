@@ -4,6 +4,8 @@ import adiitya.mojang4j.http.RequestLimiter;
 import adiitya.mojang4j.http.ResponseHandler;
 import adiitya.mojang4j.http.response.*;
 import adiitya.mojang4j.status.MojangServices;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -30,9 +32,11 @@ public final class MojangAPI {
 	private static MojangAPI instance;
 	private static CloseableHttpClient client = HttpClients.createDefault();
 	private static RequestLimiter requestLimiter = new RequestLimiter(600, TimeUnit.MINUTES.toMillis(10));
+	private static Cache<UUID, UserProfile> profiles = buildCache();
 
 	private static final ResponseHandler<MojangServices> serviceHandler = new ServiceHandler();
-	private static final ResponseHandler<UUID>           uuidHandler    = new UUIDHandler();
+	private static final ResponseHandler<UUID> uuidHandler = new UUIDHandler();
+	private static final ResponseHandler<UserProfile> profileHandler = new ProfileHandler();
 
 	/**
 	 * This method retreives the status of each Mojang service. This is expected to be
@@ -54,6 +58,19 @@ public final class MojangAPI {
 		return request(Endpoints.getUUID(username, at), uuidHandler);
 	}
 
+	public Optional<UserProfile> getProfile(UUID uuid) {
+
+		UserProfile cachedProfile = profiles.getIfPresent(uuid);
+
+		if (cachedProfile != null)
+			return Optional.of(cachedProfile);
+
+		Optional<UserProfile> profile = request(Endpoints.getProfile(uuid), profileHandler);
+		profile.ifPresent(p -> profiles.put(uuid, p));
+
+		return profile;
+	}
+
 	private <T> Optional<T> request(URI uri, ResponseHandler<T> handler) {
 
 		if (!requestLimiter.canRequest())
@@ -66,19 +83,27 @@ public final class MojangAPI {
 			requestLimiter.request(response);
 
 			int code = response.getStatusLine().getStatusCode();
+
+			if (code != 200)
+				return Optional.empty();
+
 			InputStream content = response.getEntity().getContent();
 			InputStreamReader reader = new InputStreamReader(content);
 
 			JsonElement json = new JsonParser().parse(reader);
 			reader.close();
 
-			if (code != 200)
-				return Optional.empty();
-
 			return handler.handle(code, json);
 		} catch (IOException e) {
 			return Optional.empty();
 		}
+	}
+
+	private static Cache<UUID, UserProfile> buildCache() {
+
+		return Caffeine.newBuilder()
+				.expireAfterWrite(1, TimeUnit.MINUTES)
+				.build();
 	}
 
 	private static void disconnect() {

@@ -11,7 +11,7 @@ import com.google.gson.JsonObject;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
-public class ServiceHandler implements ResponseHandler<MojangServices> {
+public final class ServiceHandler implements ResponseHandler<MojangServices> {
 
 	@Override
 	public Optional<MojangServices> handle(int code, JsonElement json) {

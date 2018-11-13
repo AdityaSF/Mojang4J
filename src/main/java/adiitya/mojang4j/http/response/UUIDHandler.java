@@ -7,7 +7,7 @@ import com.google.gson.JsonElement;
 import java.util.Optional;
 import java.util.UUID;
 
-public class UUIDHandler implements ResponseHandler<UUID> {
+public final class UUIDHandler implements ResponseHandler<UUID> {
 
 	@Override
 	public Optional<UUID> handle(int code, JsonElement json) {
