@@ -1,6 +1,5 @@
 package adiitya.mojang4j.http.response;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,13 +18,13 @@ public class UUIDHandlerTests extends HandlerTest<UUID, JsonObject> {
 	}
 
 	@Override
-	protected JsonElement getValidJson() {
+	protected JsonObject getValidJson() {
 		json.addProperty("id", "00000000-0000-0000-0000-000000000000");
 		return json;
 	}
 
 	@Override
-	protected JsonElement getInvalidJson() {
+	protected JsonObject getInvalidJson() {
 		json.addProperty("uuid", "this is not a valid uuid");
 		return json;
 	}

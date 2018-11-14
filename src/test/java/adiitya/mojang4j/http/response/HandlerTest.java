@@ -13,8 +13,8 @@ public abstract class HandlerTest<T, J extends JsonElement> {
 	@BeforeEach
 	public abstract void beforeEach();
 
-	protected abstract JsonElement getValidJson();
-	protected abstract JsonElement getInvalidJson();
+	protected abstract J getValidJson();
+	protected abstract J getInvalidJson();
 
 	@Test
 	protected abstract void shouldPassWithValidJson();
