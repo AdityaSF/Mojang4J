@@ -23,8 +23,17 @@ public final class RequestLimiter {
 	}
 
 	public void request(CloseableHttpResponse response) {
+
+		// only update if request() isn't called, as request() already updates
+		if (response != null)
+			request();
+		else
+			updateRequests();
+	}
+
+	void request() {
 		updateRequests();
-		if (response != null) requestTimestamps.add(System.currentTimeMillis());
+		requestTimestamps.add(System.currentTimeMillis());
 	}
 
 	private void updateRequests() {

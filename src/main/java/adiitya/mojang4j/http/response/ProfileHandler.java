@@ -17,6 +17,8 @@ public final class ProfileHandler implements ResponseHandler<UserProfile> {
 		String uuid = profile.get("id").getAsString();
 		String username = profile.get("name").getAsString();
 
+		System.out.println(profile.toString());
+
 		return Optional.of(new UserProfile(UUIDUtils.addHyphens(uuid), username));
 	}
 }
